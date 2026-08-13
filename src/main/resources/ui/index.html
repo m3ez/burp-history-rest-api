@@ -1,0 +1,965 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Burp History REST API</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --bg: #f4f6f8;
+      --surface: #ffffff;
+      --surface-2: #eef2f5;
+      --text: #18212b;
+      --muted: #5e6b78;
+      --border: #d4dae0;
+      --accent: #c14b16;
+      --accent-strong: #96370f;
+      --danger: #a32727;
+      --success: #176b3a;
+      --shadow: 0 8px 24px rgba(18, 28, 38, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #11161b;
+        --surface: #1a2128;
+        --surface-2: #222b34;
+        --text: #edf2f6;
+        --muted: #aab6c1;
+        --border: #36414c;
+        --accent: #f0783c;
+        --accent-strong: #ff945e;
+        --danger: #ff8e8e;
+        --success: #73d99f;
+        --shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    a { color: var(--accent); }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 18px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .logo {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--accent);
+      color: white;
+      font-weight: 800;
+      letter-spacing: -1px;
+      flex: 0 0 auto;
+    }
+    h1 { margin: 0; font-size: 1.08rem; }
+    .subtitle { color: var(--muted); font-size: .84rem; margin-top: 2px; }
+    .connection { display: flex; align-items: center; gap: 8px; font-size: .86rem; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+    .dot.ok { background: var(--success); }
+    .dot.bad { background: var(--danger); }
+
+    main { max-width: 1680px; margin: 0 auto; padding: 20px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+    }
+    .auth-card { padding: 16px; margin-bottom: 16px; }
+    .auth-grid {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto auto auto;
+      gap: 10px;
+      align-items: end;
+    }
+    label { display: block; color: var(--muted); font-size: .78rem; font-weight: 650; }
+    input, select {
+      width: 100%;
+      min-height: 36px;
+      margin-top: 5px;
+      padding: 7px 9px;
+      color: var(--text);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+    }
+    input:focus, select:focus, button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .token-wrap { display: flex; gap: 6px; }
+    .token-wrap input { flex: 1; }
+    .checkbox {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text);
+      white-space: nowrap;
+      font-weight: 500;
+    }
+    .checkbox input { width: auto; min-height: auto; margin: 0; }
+    .button {
+      min-height: 36px;
+      padding: 7px 12px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      background: var(--surface-2);
+    }
+    .button:hover:not(:disabled) { border-color: var(--accent); }
+    .button.primary { background: var(--accent); color: white; border-color: var(--accent); }
+    .button.primary:hover:not(:disabled) { background: var(--accent-strong); }
+    .button.small { min-height: 29px; padding: 4px 8px; font-size: .78rem; }
+
+    .filters { padding: 16px; margin-bottom: 16px; }
+    .section-heading {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    h2 { margin: 0; font-size: .98rem; }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(130px, 1fr));
+      gap: 11px;
+    }
+    .filter-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .button-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(680px, 1.18fr) minmax(460px, .82fr);
+      gap: 16px;
+      align-items: start;
+    }
+    .results-card, .details-card { min-width: 0; overflow: hidden; }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--border);
+    }
+    .muted { color: var(--muted); }
+    .status-line { font-size: .82rem; min-height: 1.2em; }
+    .error { color: var(--danger); }
+    .success { color: var(--success); }
+
+    .table-scroll { overflow: auto; max-height: calc(100vh - 345px); min-height: 380px; }
+    table { border-collapse: collapse; width: 100%; font-size: .81rem; }
+    th, td {
+      padding: 8px 9px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+    th { position: sticky; top: 0; z-index: 1; background: var(--surface-2); color: var(--muted); }
+    td.path { max-width: 420px; overflow: hidden; text-overflow: ellipsis; }
+    tbody tr:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+    tbody tr.selected { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+    .method { font-weight: 750; }
+    .status-code { font-variant-numeric: tabular-nums; }
+    .pager {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      border-top: 1px solid var(--border);
+      font-size: .82rem;
+    }
+
+    .empty {
+      min-height: 250px;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .details-body { padding: 14px; }
+    .metadata {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px 14px;
+      margin-bottom: 14px;
+      font-size: .82rem;
+    }
+    .metadata div { overflow-wrap: anywhere; }
+    .metadata strong { color: var(--muted); display: inline-block; min-width: 76px; }
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin: 12px 0 6px;
+    }
+    .message-header h3 { margin: 0; font-size: .86rem; }
+    pre {
+      margin: 0;
+      min-height: 180px;
+      max-height: 31vh;
+      overflow: auto;
+      padding: 11px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface-2);
+      color: var(--text);
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .warning {
+      margin-top: 10px;
+      padding: 9px 10px;
+      border-left: 3px solid var(--accent);
+      background: var(--surface-2);
+      color: var(--muted);
+      font-size: .78rem;
+    }
+    footer { margin: 16px 2px 0; color: var(--muted); font-size: .75rem; }
+
+    @media (max-width: 1220px) {
+      .filter-grid { grid-template-columns: repeat(3, minmax(140px, 1fr)); }
+      .workspace { grid-template-columns: 1fr; }
+      .table-scroll { max-height: 550px; }
+    }
+    @media (max-width: 720px) {
+      .topbar { align-items: flex-start; padding: 14px; }
+      main { padding: 12px; }
+      .auth-grid, .filter-grid { grid-template-columns: 1fr; }
+      .connection { display: none; }
+      .metadata { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">BH</div>
+    <div>
+      <h1>Burp History REST API</h1>
+      <div class="subtitle">Read-only Proxy HTTP history viewer · v1.4.1</div>
+    </div>
+  </div>
+  <div class="connection" aria-live="polite">
+    <span id="connectionDot" class="dot"></span>
+    <span id="connectionText">Checking extension…</span>
+  </div>
+</header>
+
+<main>
+  <section class="card auth-card" aria-labelledby="authHeading">
+    <div class="section-heading">
+      <h2 id="authHeading">Authentication</h2>
+      <a href="/api/v1/openapi.json" target="_blank" rel="noreferrer">OpenAPI 3.1</a>
+    </div>
+    <div class="auth-grid">
+      <label>Bearer token
+        <span class="token-wrap">
+          <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="Copy from the History REST tab in Burp">
+          <button id="toggleToken" class="button" type="button" aria-label="Show token">Show</button>
+        </span>
+      </label>
+      <label class="checkbox"><input id="rememberToken" type="checkbox"> Remember for this browser tab</label>
+      <button id="testConnection" class="button" type="button">Test token</button>
+      <button id="loadHistoryTop" class="button primary" type="button">Load history</button>
+    </div>
+    <div id="authStatus" class="status-line muted" role="status"></div>
+  </section>
+
+  <form id="filterForm" class="card filters" autocomplete="off">
+    <div class="section-heading">
+      <h2>History filters</h2>
+      <span class="muted" style="font-size:.78rem">Comma-separate methods, statuses, MIME types, and extensions</span>
+    </div>
+    <div class="filter-grid">
+      <label>Host pattern
+        <input name="host" placeholder="*.example.com" spellcheck="false">
+      </label>
+      <label>Method
+        <input name="method" placeholder="GET,POST" spellcheck="false">
+      </label>
+      <label>Path contains
+        <input name="path" placeholder="/api/" spellcheck="false">
+      </label>
+      <label>URL contains
+        <input name="url" placeholder="api.example.com/login" spellcheck="false">
+      </label>
+      <label>Query parameter
+        <input name="query_param" placeholder="debug=true" spellcheck="false">
+      </label>
+      <label>Status
+        <input name="status" placeholder="2xx,404,none" spellcheck="false">
+      </label>
+      <label>MIME type
+        <input name="mime" placeholder="JSON,HTML" spellcheck="false">
+      </label>
+      <label>Reason phrase
+        <input name="reason" placeholder="OK" spellcheck="false">
+      </label>
+      <label>Extension
+        <input name="extension" placeholder="js,json" spellcheck="false">
+      </label>
+      <label>Request header
+        <input name="request_header" placeholder="Authorization:Bearer" spellcheck="false">
+      </label>
+      <label>Response header
+        <input name="response_header" placeholder="Content-Type:json" spellcheck="false">
+      </label>
+      <label>Cookie
+        <input name="cookie" placeholder="session=abc" spellcheck="false">
+      </label>
+      <label>Request body contains
+        <input name="request_body" placeholder="username" spellcheck="false">
+      </label>
+      <label>Response body contains
+        <input name="response_body" placeholder="access_token" spellcheck="false">
+      </label>
+      <label>General keyword search
+        <input name="q" placeholder="access_token" spellcheck="false">
+      </label>
+      <label>Search in
+        <select name="search_in">
+          <option value="any">Everything</option>
+          <option value="both">Request and response</option>
+          <option value="request">Request only</option>
+          <option value="response">Response only</option>
+          <option value="metadata">Metadata</option>
+          <option value="url">URL</option>
+          <option value="headers">Headers</option>
+          <option value="cookies">Cookies</option>
+          <option value="body">Bodies</option>
+          <option value="query">Query string</option>
+        </select>
+      </label>
+      <label>Response presence
+        <select name="has_response">
+          <option value="">Any</option>
+          <option value="true">Has response</option>
+          <option value="false">No response</option>
+        </select>
+      </label>
+      <label>Target scope
+        <select name="in_scope">
+          <option value="">Any</option>
+          <option value="true">In scope</option>
+          <option value="false">Out of scope</option>
+        </select>
+      </label>
+      <label>From (local time)
+        <input name="from" type="datetime-local">
+      </label>
+      <label>To (local time)
+        <input name="to" type="datetime-local">
+      </label>
+      <label>After history ID
+        <input name="after_id" inputmode="numeric" placeholder="Incremental sync, exclusive">
+      </label>
+      <label>Before history ID
+        <input name="before_id" inputmode="numeric" placeholder="Reverse sync, exclusive">
+      </label>
+      <label>Opaque cursor
+        <input name="cursor" placeholder="sync.nextCursor" spellcheck="false">
+      </label>
+      <label>Sort by
+        <select name="sort">
+          <option value="time">Time</option>
+          <option value="id">ID</option>
+          <option value="host">Host</option>
+          <option value="method">Method</option>
+          <option value="url">URL</option>
+          <option value="path">Path</option>
+          <option value="port">Destination port</option>
+          <option value="status">Status</option>
+          <option value="mime">MIME type</option>
+          <option value="listener_port">Listener port</option>
+          <option value="request_length">Request size</option>
+          <option value="response_length">Response size</option>
+        </select>
+      </label>
+      <label>Order
+        <select name="order">
+          <option value="desc">Descending</option>
+          <option value="asc">Ascending</option>
+        </select>
+      </label>
+      <label>Page size
+        <select name="limit">
+          <option>25</option>
+          <option selected>50</option>
+          <option>100</option>
+          <option>250</option>
+          <option>500</option>
+        </select>
+      </label>
+      <label>Proxy listener port
+        <input name="listener_port" inputmode="numeric" placeholder="8080">
+      </label>
+      <label>Recent window
+        <input name="last" placeholder="30m, 2h, 7d" spellcheck="false">
+      </label>
+      <label>Include structured fields
+        <input name="include" placeholder="headers,cookies,query_parameters" spellcheck="false">
+      </label>
+    </div>
+    <div class="filter-actions">
+      <div class="button-row">
+        <label class="checkbox"><input name="case_sensitive" type="checkbox"> Case-sensitive search</label>
+        <label class="checkbox"><input name="regex" type="checkbox"> Regular expression</label>
+      </div>
+      <div class="button-row">
+        <button id="resetFilters" class="button" type="button">Reset</button>
+        <button id="copyCurl" class="button" type="button">Copy curl command</button>
+        <button class="button primary" type="submit">Apply filters</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="workspace">
+    <section class="card results-card" aria-labelledby="resultsHeading">
+      <div class="card-header">
+        <div>
+          <h2 id="resultsHeading">Proxy history</h2>
+          <div id="resultsStatus" class="status-line muted" role="status">Enter a token and load history.</div>
+        </div>
+        <button id="refreshHistory" class="button small" type="button">Refresh</button>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+          <tr>
+            <th>ID</th>
+            <th>Time</th>
+            <th>Method</th>
+            <th>Host</th>
+            <th>Path</th>
+            <th>Status</th>
+            <th>MIME</th>
+            <th>Req</th>
+            <th>Resp</th>
+            <th></th>
+          </tr>
+          </thead>
+          <tbody id="historyRows"></tbody>
+        </table>
+        <div id="historyEmpty" class="empty">No results loaded.</div>
+      </div>
+      <div class="pager">
+        <button id="previousPage" class="button small" type="button" disabled>Previous</button>
+        <span id="pageLabel" class="muted">0–0 of 0</span>
+        <button id="nextPage" class="button small" type="button" disabled>Next</button>
+      </div>
+    </section>
+
+    <section class="card details-card" aria-labelledby="detailsHeading">
+      <div class="card-header">
+        <div>
+          <h2 id="detailsHeading">Message details</h2>
+          <div id="detailsStatus" class="status-line muted">Select a history item.</div>
+        </div>
+      </div>
+      <div id="detailsEmpty" class="empty">Select “View” beside a history item to inspect its final request and response.</div>
+      <div id="detailsBody" class="details-body" hidden>
+        <div id="metadata" class="metadata"></div>
+
+        <div class="message-header">
+          <h3>Final request</h3>
+          <div class="button-row">
+            <button id="copyRequest" class="button small" type="button">Copy text</button>
+            <button id="downloadRequest" class="button small" type="button">Download raw</button>
+          </div>
+        </div>
+        <pre id="requestMessage" tabindex="0"></pre>
+
+        <div class="message-header">
+          <h3>Response</h3>
+          <div class="button-row">
+            <button id="copyResponse" class="button small" type="button">Copy text</button>
+            <button id="downloadResponse" class="button small" type="button">Download raw</button>
+          </div>
+        </div>
+        <pre id="responseMessage" tabindex="0"></pre>
+        <div class="warning">Text view decodes bytes as UTF-8 and may be lossy. Use “Download raw” for exact binary data.</div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:16px">
+    <div class="panel-header"><div><h2>External integrations</h2><div class="subtitle">Use POST search for complex filters, cursors for incremental sync, and SSE for live traffic.</div></div></div>
+    <div class="warning">Structured JSON, text, NDJSON, previews, and event summaries follow the configured redaction policy. Exact <code>format=raw</code> downloads are intentionally unredacted.</div>
+  </section>
+
+  <footer>
+    <strong>Author: Supakiad S. (m3ez) - E-CQURITY (Thailand)</strong> · <a href="http://x.com/supakiad_mee" target="_blank" rel="noreferrer">http://x.com/supakiad_mee</a><br>
+    This local dashboard never places the API token in a URL. Use a token with history:read; exact raw downloads additionally require history:raw and project-level raw access. Proxy history may contain passwords, cookies, and bearer tokens. Prefer loopback binding; when a network interface or all-interface mode is enabled, enforce firewall policy and least-privilege tokens.
+  </footer>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  const state = {
+    offset: 0,
+    limit: 50,
+    total: 0,
+    hasMore: false,
+    selectedId: null,
+    selectedRow: null,
+    requestText: '',
+    responseText: '',
+    activeController: null,
+    health: null
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const tokenInput = $('token');
+  const rememberToken = $('rememberToken');
+  const filterForm = $('filterForm');
+  const rows = $('historyRows');
+  const empty = $('historyEmpty');
+
+  const savedToken = sessionStorage.getItem('burpHistoryRestToken');
+  if (savedToken) {
+    tokenInput.value = savedToken;
+    rememberToken.checked = true;
+  }
+
+  function token() {
+    return tokenInput.value.trim();
+  }
+
+  function authorizationHeaders() {
+    return { 'Authorization': `Bearer ${token()}`, 'Accept': 'application/json' };
+  }
+
+  function setConnection(ok, text) {
+    $('connectionDot').className = `dot ${ok === true ? 'ok' : ok === false ? 'bad' : ''}`;
+    $('connectionText').textContent = text;
+  }
+
+  function setStatus(target, text, kind = 'muted') {
+    target.className = `status-line ${kind}`;
+    target.textContent = text;
+  }
+
+  async function readJson(response) {
+    const text = await response.text();
+    let body = null;
+    try { body = text ? JSON.parse(text) : null; } catch (_) { /* handled below */ }
+    if (!response.ok) {
+      const message = body?.error?.message || `${response.status} ${response.statusText}`;
+      const error = new Error(message);
+      error.status = response.status;
+      error.body = body;
+      throw error;
+    }
+    if (body === null) throw new Error('The extension returned an invalid JSON response.');
+    return body;
+  }
+
+  async function checkHealth() {
+    try {
+      const response = await fetch('/api/v1/health', { cache: 'no-store' });
+      const health = await readJson(response);
+      state.health = health;
+      const listener = health.allowAllInterfaces ? `all interfaces on port ${health.port}` : `${health.bindAddress}:${health.port}`;
+      setConnection(true, `${health.version} · API ready on ${listener}${health.networkExposed ? ' · NETWORK-EXPOSED' : ''}`);
+      const regex = filterForm.elements.regex;
+      regex.disabled = !health.regexEnabled;
+      regex.parentElement.title = health.regexEnabled
+        ? 'Regular-expression searching is enabled in Burp.'
+        : 'Enable regular-expression searching in the History REST tab in Burp.';
+      const maxPageSize = Number(health.maxPageSize || 500);
+      for (const option of filterForm.elements.limit.options) {
+        option.disabled = Number(option.value) > maxPageSize;
+      }
+    } catch (error) {
+      setConnection(false, 'Extension API unavailable');
+      setStatus($('authStatus'), error.message, 'error');
+    }
+  }
+
+  function persistTokenChoice() {
+    if (rememberToken.checked && token()) {
+      sessionStorage.setItem('burpHistoryRestToken', token());
+    } else {
+      sessionStorage.removeItem('burpHistoryRestToken');
+    }
+  }
+
+  async function testToken() {
+    persistTokenChoice();
+    if (!token()) {
+      setStatus($('authStatus'), 'Enter the token shown in the Burp History REST tab.', 'error');
+      return false;
+    }
+    setStatus($('authStatus'), 'Testing token…');
+    try {
+      const response = await fetch('/api/v1/history?limit=1', {
+        headers: authorizationHeaders(),
+        cache: 'no-store'
+      });
+      await readJson(response);
+      setStatus($('authStatus'), 'Token accepted.', 'success');
+      return true;
+    } catch (error) {
+      setStatus($('authStatus'), error.status === 401 ? 'Token rejected.' : error.message, 'error');
+      return false;
+    }
+  }
+
+  function addParam(params, name, value) {
+    const trimmed = String(value ?? '').trim();
+    if (trimmed) params.set(name, trimmed);
+  }
+
+  function currentQuery() {
+    const fields = filterForm.elements;
+    const params = new URLSearchParams();
+    addParam(params, 'host', fields.host.value);
+    addParam(params, 'method', fields.method.value);
+    addParam(params, 'path', fields.path.value);
+    addParam(params, 'url', fields.url.value);
+    addParam(params, 'query_param', fields.query_param.value);
+    addParam(params, 'status', fields.status.value);
+    addParam(params, 'reason', fields.reason.value);
+    addParam(params, 'mime', fields.mime.value);
+    addParam(params, 'extension', fields.extension.value);
+    addParam(params, 'request_header', fields.request_header.value);
+    addParam(params, 'response_header', fields.response_header.value);
+    addParam(params, 'cookie', fields.cookie.value);
+    addParam(params, 'request_body', fields.request_body.value);
+    addParam(params, 'response_body', fields.response_body.value);
+    addParam(params, 'q', fields.q.value);
+    addParam(params, 'listener_port', fields.listener_port.value);
+    addParam(params, 'last', fields.last.value);
+    addParam(params, 'include', fields.include.value);
+    addParam(params, 'has_response', fields.has_response.value);
+    addParam(params, 'in_scope', fields.in_scope.value);
+    addParam(params, 'search_in', fields.search_in.value);
+    const afterId = String(fields.after_id.value || '').trim();
+    const beforeId = String(fields.before_id.value || '').trim();
+    const cursor = String(fields.cursor.value || '').trim();
+    addParam(params, 'after_id', afterId);
+    addParam(params, 'before_id', beforeId);
+    addParam(params, 'cursor', cursor);
+    if (afterId || cursor) {
+      params.set('sort', 'id');
+      params.set('order', 'asc');
+      state.offset = 0;
+    } else if (beforeId) {
+      params.set('sort', 'id');
+      params.set('order', 'desc');
+      state.offset = 0;
+    } else {
+      addParam(params, 'sort', fields.sort.value);
+      addParam(params, 'order', fields.order.value);
+    }
+    if (fields.case_sensitive.checked) params.set('case_sensitive', 'true');
+    if (fields.regex.checked) params.set('regex', 'true');
+    if (fields.from.value) params.set('from', new Date(fields.from.value).toISOString());
+    if (fields.to.value) params.set('to', new Date(fields.to.value).toISOString());
+    state.limit = Number(fields.limit.value) || 50;
+    params.set('offset', String(state.offset));
+    params.set('limit', String(state.limit));
+    return params;
+  }
+
+  function formatTime(value) {
+    if (!value) return '—';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  }
+
+  function formatBytes(value) {
+    if (value === null || value === undefined || value < 0) return '—';
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KiB`;
+    return `${(value / (1024 * 1024)).toFixed(1)} MiB`;
+  }
+
+  function cell(text, className = '') {
+    const td = document.createElement('td');
+    td.textContent = text === null || text === undefined || text === '' ? '—' : String(text);
+    if (className) td.className = className;
+    return td;
+  }
+
+  function renderRows(items) {
+    rows.replaceChildren();
+    empty.hidden = items.length > 0;
+    empty.textContent = items.length ? '' : 'No Proxy history entries matched the current filters.';
+
+    for (const item of items) {
+      const row = document.createElement('tr');
+      row.dataset.id = String(item.id);
+      if (state.selectedId === item.id) {
+        row.classList.add('selected');
+        state.selectedRow = row;
+      }
+      row.append(
+        cell(item.id),
+        cell(formatTime(item.time)),
+        cell(item.method, 'method'),
+        cell(item.host),
+        cell(item.path, 'path'),
+        cell(item.status, 'status-code'),
+        cell(item.mimeType),
+        cell(formatBytes(item.requestLength)),
+        cell(formatBytes(item.responseLength))
+      );
+      const actionCell = document.createElement('td');
+      const view = document.createElement('button');
+      view.type = 'button';
+      view.className = 'button small';
+      view.textContent = 'View';
+      view.addEventListener('click', () => loadDetails(item.id, row));
+      actionCell.append(view);
+      row.append(actionCell);
+      rows.append(row);
+    }
+  }
+
+  function updatePager() {
+    const start = state.total === 0 ? 0 : state.offset + 1;
+    const end = Math.min(state.offset + state.limit, state.total);
+    $('pageLabel').textContent = `${start}–${end} of ${state.total}`;
+    $('previousPage').disabled = state.offset <= 0;
+    $('nextPage').disabled = !state.hasMore;
+  }
+
+  async function loadHistory(resetOffset = false) {
+    persistTokenChoice();
+    if (!token()) {
+      setStatus($('authStatus'), 'Enter the bearer token first.', 'error');
+      tokenInput.focus();
+      return;
+    }
+    if (resetOffset) state.offset = 0;
+
+    state.activeController?.abort();
+    state.activeController = new AbortController();
+    setStatus($('resultsStatus'), 'Scanning Proxy history…');
+    $('refreshHistory').disabled = true;
+
+    try {
+      const params = currentQuery();
+      const response = await fetch(`/api/v1/history?${params}`, {
+        headers: authorizationHeaders(),
+        cache: 'no-store',
+        signal: state.activeController.signal
+      });
+      const page = await readJson(response);
+      state.total = Number(page.total || 0);
+      state.hasMore = Boolean(page.hasMore);
+      renderRows(Array.isArray(page.items) ? page.items : []);
+      updatePager();
+      const sync = page.sync || {};
+      const syncText = sync.nextCursor ? ` · cursor ready · high-watermark ${sync.highWatermarkId}` : '';
+      setStatus(
+        $('resultsStatus'),
+        `${page.returned} returned · ${page.total} matched · ${page.scannedCount ?? '—'} scanned · ${page.durationMs} ms${syncText}`,
+        'success'
+      );
+      setStatus($('authStatus'), 'Authenticated.', 'success');
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      rows.replaceChildren();
+      empty.hidden = false;
+      empty.textContent = 'Unable to load history.';
+      state.total = 0;
+      state.hasMore = false;
+      updatePager();
+      setStatus($('resultsStatus'), error.message, 'error');
+      if (error.status === 401) setStatus($('authStatus'), 'Token rejected.', 'error');
+    } finally {
+      $('refreshHistory').disabled = false;
+    }
+  }
+
+  function metadataEntry(label, value) {
+    const div = document.createElement('div');
+    const strong = document.createElement('strong');
+    strong.textContent = `${label}:`;
+    div.append(strong, document.createTextNode(value === null || value === undefined || value === '' ? '—' : String(value)));
+    return div;
+  }
+
+  function envelopeText(envelope, missingText) {
+    if (!envelope) return missingText;
+    if (envelope.omitted) return `[Message omitted: ${envelope.length} bytes exceeds configured maximum ${envelope.maximum} bytes]`;
+    return envelope.data ?? '';
+  }
+
+  async function loadDetails(id, row) {
+    persistTokenChoice();
+    setStatus($('detailsStatus'), `Loading history item ${id}…`);
+    try {
+      const response = await fetch(`/api/v1/history/${id}?format=text`, {
+        headers: authorizationHeaders(),
+        cache: 'no-store'
+      });
+      const details = await readJson(response);
+      const item = details.item || {};
+      state.selectedId = id;
+      state.selectedRow?.classList.remove('selected');
+      state.selectedRow = row;
+      row?.classList.add('selected');
+      state.requestText = envelopeText(details.request, '[Request unavailable]');
+      state.responseText = envelopeText(details.response, '[No response]');
+
+      const metadata = $('metadata');
+      metadata.replaceChildren(
+        metadataEntry('ID', item.id),
+        metadataEntry('Time', formatTime(item.time)),
+        metadataEntry('Method', item.method),
+        metadataEntry('Status', item.status),
+        metadataEntry('Host', item.host),
+        metadataEntry('Port', item.port),
+        metadataEntry('URL', item.url),
+        metadataEntry('MIME', item.mimeType),
+        metadataEntry('In scope', item.inScope),
+        metadataEntry('Edited', item.edited),
+        metadataEntry('Listener', item.listenerPort),
+        metadataEntry('HTTP', item.httpVersion)
+      );
+      $('requestMessage').textContent = state.requestText;
+      $('responseMessage').textContent = state.responseText;
+      $('downloadRequest').disabled = !details.request || Boolean(details.request.omitted);
+      $('downloadResponse').disabled = !details.response || Boolean(details.response.omitted);
+      $('copyRequest').disabled = !details.request;
+      $('copyResponse').disabled = !details.response;
+      $('detailsEmpty').hidden = true;
+      $('detailsBody').hidden = false;
+      setStatus($('detailsStatus'), `${item.method || ''} ${item.url || ''}`.trim(), 'success');
+    } catch (error) {
+      setStatus($('detailsStatus'), error.message, 'error');
+    }
+  }
+
+  async function copyText(value, label) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setStatus($('detailsStatus'), `${label} copied to clipboard.`, 'success');
+    } catch (error) {
+      setStatus($('detailsStatus'), `Unable to copy: ${error.message}`, 'error');
+    }
+  }
+
+  async function downloadRaw(side) {
+    if (state.selectedId === null) return;
+    try {
+      const response = await fetch(`/api/v1/history/${state.selectedId}/${side}?format=raw`, {
+        headers: { 'Authorization': `Bearer ${token()}` },
+        cache: 'no-store'
+      });
+      if (!response.ok) {
+        const body = await readJson(response);
+        throw new Error(body?.error?.message || 'Download failed');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `burp-history-${state.selectedId}-${side}.http`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setStatus($('detailsStatus'), error.message, 'error');
+    }
+  }
+
+  function shellQuote(value) {
+    return `'${String(value).replaceAll("'", "'\\''")}'`;
+  }
+
+  async function copyCurl() {
+    if (!token()) {
+      setStatus($('authStatus'), 'Enter a token before copying a curl command.', 'error');
+      return;
+    }
+    const params = currentQuery();
+    const url = `${location.origin}/api/v1/history?${params}`;
+    const command = `curl --fail --show-error -H ${shellQuote(`Authorization: Bearer ${token()}`)} ${shellQuote(url)}`;
+    try {
+      await navigator.clipboard.writeText(command);
+      setStatus($('resultsStatus'), 'curl command copied. It contains the API token; handle it as a secret.', 'success');
+    } catch (error) {
+      setStatus($('resultsStatus'), `Unable to copy: ${error.message}`, 'error');
+    }
+  }
+
+  $('toggleToken').addEventListener('click', () => {
+    const hidden = tokenInput.type === 'password';
+    tokenInput.type = hidden ? 'text' : 'password';
+    $('toggleToken').textContent = hidden ? 'Hide' : 'Show';
+    $('toggleToken').setAttribute('aria-label', hidden ? 'Hide token' : 'Show token');
+  });
+  rememberToken.addEventListener('change', persistTokenChoice);
+  tokenInput.addEventListener('change', persistTokenChoice);
+  $('testConnection').addEventListener('click', testToken);
+  $('loadHistoryTop').addEventListener('click', () => loadHistory(true));
+  $('refreshHistory').addEventListener('click', () => loadHistory(false));
+  filterForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    loadHistory(true);
+  });
+  $('resetFilters').addEventListener('click', () => {
+    filterForm.reset();
+    state.offset = 0;
+    if (state.health) filterForm.elements.regex.disabled = !state.health.regexEnabled;
+  });
+  $('copyCurl').addEventListener('click', copyCurl);
+  $('previousPage').addEventListener('click', () => {
+    state.offset = Math.max(0, state.offset - state.limit);
+    loadHistory(false);
+  });
+  $('nextPage').addEventListener('click', () => {
+    if (!state.hasMore) return;
+    state.offset += state.limit;
+    loadHistory(false);
+  });
+  $('copyRequest').addEventListener('click', () => copyText(state.requestText, 'Request'));
+  $('copyResponse').addEventListener('click', () => copyText(state.responseText, 'Response'));
+  $('downloadRequest').addEventListener('click', () => downloadRaw('request'));
+  $('downloadResponse').addEventListener('click', () => downloadRaw('response'));
+
+  checkHealth();
+})();
+</script>
+</body>
+</html>
